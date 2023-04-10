@@ -1,13 +1,12 @@
-import React, { useState } from "react";
+import React from "react";
 import "./App.css";
 import Chat from "./Chat";
 
 const App: React.FC = () => {
-
   return (
     <div className="App">
       <header className="App-header">
-        <Chat/>
+        <Chat />
       </header>
     </div>
   );

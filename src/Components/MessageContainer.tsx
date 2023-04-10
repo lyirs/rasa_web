@@ -1,6 +1,6 @@
 import React from "react";
 import { List } from "antd";
-import type { Message } from "./Chat";
+import type { Message } from "../Chat";
 import { useTransition, animated } from "react-spring";
 
 interface MessageContainerProps {

@@ -1,13 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Input, Button } from "antd";
 import "./chat.css";
 import type { InputRef } from "antd";
-import ConfidenceRanking from "./ConfidenceRanking";
-import SlotDisplay from "./SlotDisplay";
-import SessionManagement from "./SessionManagement";
-import MessageContainer from "./MessageContainer";
-import StoryContainer from "./StoryContainer";
+import ConfidenceRanking from "./Components/ConfidenceRanking";
+import SlotDisplay from "./Components/SlotDisplay";
+import SessionManagement from "./Components/SessionManagement";
+import MessageContainer from "./Components/MessageContainer";
+import StoryContainer from "./Components/StoryContainer";
+import {
+  deleteConversation,
+  fetchUserSessions,
+  getConversationTracker,
+  getNLUModelParse,
+  getWebhookResponse,
+  resetConversationTracker,
+  storeConversation,
+  deleteSessions,
+} from "./request/api";
 
 export interface Message {
   text: string;
@@ -27,13 +36,8 @@ const Chat: React.FC = () => {
 
   const fetchSessions = async (userId: string) => {
     try {
-      const session = await axios.get(
-        `http://localhost:5001/user_sessions/${userId}`
-      );
-      console.log("fetchSessions");
-      console.log(userId);
-      console.log(session);
-      const sessionIds = session.data.sessions;
+      const session = await fetchUserSessions(userId);
+      const sessionIds = session.sessions;
 
       const newSessions: { [key: string]: Message[] } = {};
       sessionIds.forEach((sessionId: string) => {
@@ -51,7 +55,33 @@ const Chat: React.FC = () => {
   };
 
   const generateUserId = () => {
-    return `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `user-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  };
+
+  const fetchPreviousMessages = async (recoveredUserId: string) => {
+    try {
+      const session = await fetchUserSessions(recoveredUserId);
+
+      const sessionId = session.sessions[0];
+
+      const response = await getConversationTracker(sessionId);
+
+      const events = response.events;
+      const previousMessages: Message[] = events
+        .filter((event: any) => event.event === "user" || event.event === "bot")
+        .map((event: any) => ({
+          text: event.text,
+          isUser: event.event === "user",
+        }));
+
+      setMessages(previousMessages);
+
+      // 设置 stories.yml
+      const newStoryYaml = generateStoryYaml(response);
+      setStoryYaml(newStoryYaml);
+    } catch (error) {
+      console.error("Error fetching previous messages:", error);
+    }
   };
 
   useEffect(() => {
@@ -71,42 +101,6 @@ const Chat: React.FC = () => {
     if (storedSessions) {
       setSessions(JSON.parse(storedSessions));
     }
-
-    const fetchPreviousMessages = async (recoveredUserId: string) => {
-      try {
-        const session = await axios.get(
-          `http://localhost:5001/user_sessions/${recoveredUserId}`
-        );
-
-        console.log("session");
-        console.log(session.data.sessions);
-        const sessionId = session.data.sessions[0];
-
-        const response = await axios.get(
-          `http://localhost:5005/conversations/${sessionId}/tracker`
-        );
-
-        console.log(response.data.events);
-
-        const events = response.data.events;
-        const previousMessages: Message[] = events
-          .filter(
-            (event: any) => event.event === "user" || event.event === "bot"
-          )
-          .map((event: any) => ({
-            text: event.text,
-            isUser: event.event === "user",
-          }));
-
-        setMessages(previousMessages);
-
-        // 设置 stories.yml
-        const newStoryYaml = generateStoryYaml(response.data);
-        setStoryYaml(newStoryYaml);
-      } catch (error) {
-        console.error("Error fetching previous messages:", error);
-      }
-    };
 
     fetchPreviousMessages(storedUserId || userId);
 
@@ -140,9 +134,62 @@ const Chat: React.FC = () => {
     return storyYaml;
   };
 
-  const sendMessage = async () => {
+  const update = async (message: string, sessionId: string) => {
+    // 请求对话响应
+    const response = await getWebhookResponse(sessionId, message);
+
+    // 请求意图和置信度信息
+    const nluResponse = await getNLUModelParse(message);
+
+    // 获取对话跟踪器状态
+
+    const trackerResponse = await getConversationTracker(sessionId);
+    const trackerState = trackerResponse;
+    const slots = trackerState.slots;
+    setFilledSlots(slots);
+
+    // 存储对话session
+    const storeSession = await storeConversation(userId, sessionId);
+
+    // 设置stories.yml
+    const newStoryYaml = generateStoryYaml(trackerState);
+    setStoryYaml(newStoryYaml);
+
+    setTopIntents(
+      nluResponse.data.intent_ranking.slice(0, 10).map((intent: any) => ({
+        name: intent.name,
+        confidence: intent.confidence.toFixed(2),
+      }))
+    );
+
+    if (response.data && response.data.length > 0) {
+      const botMessage = response.data[0].text;
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          text: botMessage,
+          isUser: false,
+        },
+      ]);
+
+      setSessions((prevSessions) => ({
+        ...prevSessions,
+        [sessionId]: [
+          ...(prevSessions[sessionId] || []),
+          {
+            text: botMessage,
+            isUser: false,
+          },
+        ],
+      }));
+    }
+  };
+
+  const sendMessage = useCallback(async () => {
     if (inputRef.current) {
       const message = inputRef.current.input?.value + "";
+
       setMessages([
         ...messages,
         {
@@ -151,109 +198,21 @@ const Chat: React.FC = () => {
         },
       ]);
 
-      const update = async (sessionId: string) => {
-        // 请求对话响应
-        const response = await axios.post(
-          "http://localhost:5005/webhooks/rest/webhook",
-          { sender: sessionId, message: message }
-        );
+      setInputValue("");
 
-        // 请求意图和置信度信息
-        const nluResponse = await axios.post(
-          "http://localhost:5005/model/parse",
-          { text: message }
-        );
-
-        // 获取对话跟踪器状态
-
-        const trackerResponse = await axios.get(
-          `http://localhost:5005/conversations/${sessionId}/tracker`
-        );
-        const trackerState = trackerResponse.data;
-        const slots = trackerState.slots;
-        setFilledSlots(slots);
-
-        // 存储对话session
-        const storeSession = await axios.get(
-          `http://localhost:5001/new_conversation/${userId}/${sessionId}`
-        );
-
-        // 设置stories.yml
-        const newStoryYaml = generateStoryYaml(trackerState);
-        setStoryYaml(newStoryYaml);
-
-        setTopIntents(
-          nluResponse.data.intent_ranking.slice(0, 10).map((intent: any) => ({
-            name: intent.name,
-            confidence: intent.confidence.toFixed(2),
-          }))
-        );
-
-        if (response.data && response.data.length > 0) {
-          const botMessage = response.data[0].text;
-
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            {
-              text: botMessage,
-              isUser: false,
-            },
-          ]);
-
-          setSessions((prevSessions) => ({
-            ...prevSessions,
-            [sessionId]: [
-              ...(prevSessions[sessionId] || []),
-              {
-                text: botMessage,
-                isUser: false,
-              },
-            ],
-          }));
-        }
-      };
+      let sessionId = currentSessionId;
 
       if (!currentSessionId) {
-        const newSessionId = generateSessionId();
-        setCurrentSessionId(newSessionId);
-        setSessions((prevSessions) => ({
-          ...prevSessions,
-          [newSessionId]: [
-            {
-              text: message,
-              isUser: true,
-            },
-          ],
-        }));
-        setInputValue("");
-        update(newSessionId);
-        return;
+        sessionId = generateSessionId();
+        setCurrentSessionId(sessionId);
       }
 
-      setSessions((prevSessions) => ({
-        ...prevSessions,
-        [currentSessionId]: [
-          ...(prevSessions[currentSessionId] || []),
-          {
-            text: message,
-            isUser: true,
-          },
-        ],
-      }));
-
-      setInputValue("");
-      update(currentSessionId);
+      await update(message, sessionId);
     }
-  };
-
+  }, [currentSessionId, messages, userId]);
   const resetConversation = async () => {
     try {
-      await axios.post(
-        `http://localhost:5005/conversations/${userId}/tracker/events`,
-        {
-          event: "restart",
-        }
-      );
+      await resetConversationTracker(currentSessionId);
       setMessages([]);
     } catch (error) {
       console.error("Error resetting conversation:", error);
@@ -270,11 +229,9 @@ const Chat: React.FC = () => {
     setCurrentSessionId(selectedSession);
 
     // 从数据库获取之前的消息
-    const response = await axios.get(
-      `http://localhost:5005/conversations/${selectedSession}/tracker`
-    );
+    const response = await getConversationTracker(selectedSession);
 
-    const events = response.data.events;
+    const events = response.events;
     const previousMessages: Message[] = events
       .filter((event: any) => event.event === "user" || event.event === "bot")
       .map((event: any) => ({
@@ -285,7 +242,7 @@ const Chat: React.FC = () => {
     setMessages(previousMessages);
 
     // 获取对话跟踪器状态
-    const trackerState = response.data;
+    const trackerState = response;
 
     // 设置 stories.yml
     const newStoryYaml = generateStoryYaml(trackerState);
@@ -295,9 +252,7 @@ const Chat: React.FC = () => {
   const createNewSession = async () => {
     const newSessionId = generateSessionId();
 
-    const response = await axios.get(
-      `http://localhost:5005/conversations/${newSessionId}/tracker`
-    );
+    const response = await getConversationTracker(newSessionId);
 
     setCurrentSessionId(newSessionId);
     setSessions((prevSessions) => ({
@@ -309,12 +264,9 @@ const Chat: React.FC = () => {
 
   const deleteSession = async () => {
     try {
-      await axios.delete(
-        `http://localhost:5001/delete_conversation/${currentSessionId}`
-      );
-      await axios.delete(
-        `http://localhost:5001/delete_session/session-1681051825122`
-      );
+      await deleteConversation(currentSessionId);
+      await deleteSessions(currentSessionId);
+
       const updatedSessions = { ...sessions };
       delete updatedSessions[currentSessionId];
       setSessions(updatedSessions);
