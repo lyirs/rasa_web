@@ -115,6 +115,7 @@
 .session-management {
   display: flex;
   justify-content: center;
+  align-items: center;
   margin: 20px 0;
   padding: 10px;
   background-color: #f0f2f5;

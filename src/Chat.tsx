@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useReducer,
+} from "react";
 import { Input, Button } from "antd";
 import "./chat.css";
 import type { InputRef } from "antd";
@@ -17,6 +23,7 @@ import {
   storeConversation,
   deleteSessions,
 } from "./request/api";
+import { reducer, initialState } from "./router/reducer";
 
 export interface Message {
   text: string;
@@ -24,15 +31,15 @@ export interface Message {
 }
 
 const Chat: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef<InputRef>(null);
   const [topIntents, setTopIntents] = useState<any[]>([]);
   const [storyYaml, setStoryYaml] = useState("");
   const [userId, setUserId] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [filledSlots, setFilledSlots] = useState<{ [key: string]: any }>({});
-  const [sessions, setSessions] = useState<{ [key: string]: Message[] }>({});
-  const [currentSessionId, setCurrentSessionId] = useState("");
+
+  // 其他代码...
 
   const fetchSessions = async (userId: string) => {
     try {
@@ -43,11 +50,11 @@ const Chat: React.FC = () => {
       sessionIds.forEach((sessionId: string) => {
         newSessions[sessionId] = [];
       });
-      setSessions(newSessions);
+      dispatch({ type: "SET_SESSIONS", payload: newSessions });
 
       // 设置当前会话ID
       if (sessionIds.length > 0) {
-        setCurrentSessionId(sessionIds[0]);
+        dispatch({ type: "SET_CURRENT_SESSION", payload: sessionIds[0] });
       }
     } catch (error) {
       console.error("Error fetching sessions:", error);
@@ -74,7 +81,7 @@ const Chat: React.FC = () => {
           isUser: event.event === "user",
         }));
 
-      setMessages(previousMessages);
+      dispatch({ type: "SET_MESSAGES", payload: previousMessages });
 
       // 设置 stories.yml
       const newStoryYaml = generateStoryYaml(response);
@@ -99,14 +106,20 @@ const Chat: React.FC = () => {
 
     const storedSessions = localStorage.getItem("sessions");
     if (storedSessions) {
-      setSessions(JSON.parse(storedSessions));
+      dispatch({ type: "SET_SESSIONS", payload: JSON.parse(storedSessions) });
     }
 
     fetchPreviousMessages(storedUserId || userId);
 
-    if (Object.keys(sessions).length > 0) {
-      setCurrentSessionId(Object.keys(sessions)[0]);
-      setMessages(sessions[Object.keys(sessions)[0]]);
+    if (Object.keys(state.sessions).length > 0) {
+      dispatch({
+        type: "SET_CURRENT_SESSION",
+        payload: Object.keys(state.sessions)[0],
+      });
+      dispatch({
+        type: "SET_MESSAGES",
+        payload: state.sessions[Object.keys(state.sessions)[0]],
+      });
     }
   }, []);
 
@@ -137,7 +150,6 @@ const Chat: React.FC = () => {
   const update = async (message: string, sessionId: string) => {
     // 请求对话响应
     const response = await getWebhookResponse(sessionId, message);
-
     // 请求意图和置信度信息
     const nluResponse = await getNLUModelParse(message);
 
@@ -147,7 +159,6 @@ const Chat: React.FC = () => {
     const trackerState = trackerResponse;
     const slots = trackerState.slots;
     setFilledSlots(slots);
-
     // 存储对话session
     const storeSession = await storeConversation(userId, sessionId);
 
@@ -156,33 +167,31 @@ const Chat: React.FC = () => {
     setStoryYaml(newStoryYaml);
 
     setTopIntents(
-      nluResponse.data.intent_ranking.slice(0, 10).map((intent: any) => ({
+      nluResponse.intent_ranking.slice(0, 10).map((intent: any) => ({
         name: intent.name,
         confidence: intent.confidence.toFixed(2),
       }))
     );
 
-    if (response.data && response.data.length > 0) {
-      const botMessage = response.data[0].text;
+    if (response && response.length > 0) {
+      const botMessage = response[0].text;
 
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
+      dispatch({
+        type: "ADD_MESSAGE",
+        payload: {
           text: botMessage,
           isUser: false,
         },
-      ]);
+      });
 
-      setSessions((prevSessions) => ({
-        ...prevSessions,
+      const newSessions = {
+        ...state.sessions,
         [sessionId]: [
-          ...(prevSessions[sessionId] || []),
-          {
-            text: botMessage,
-            isUser: false,
-          },
+          ...(state.sessions[sessionId] || []),
+          { text: botMessage, isUser: false },
         ],
-      }));
+      };
+      dispatch({ type: "SET_SESSIONS", payload: newSessions });
     }
   };
 
@@ -190,30 +199,33 @@ const Chat: React.FC = () => {
     if (inputRef.current) {
       const message = inputRef.current.input?.value + "";
 
-      setMessages([
-        ...messages,
-        {
+      dispatch({
+        type: "ADD_MESSAGE",
+        payload: {
           text: message,
           isUser: true,
         },
-      ]);
+      });
 
       setInputValue("");
 
-      let sessionId = currentSessionId;
+      let sessionId = state.currentSessionId;
 
-      if (!currentSessionId) {
+      if (!state.currentSessionId) {
         sessionId = generateSessionId();
-        setCurrentSessionId(sessionId);
+        dispatch({ type: "SET_CURRENT_SESSION", payload: sessionId });
       }
 
       await update(message, sessionId);
     }
-  }, [currentSessionId, messages, userId]);
+  }, [state.currentSessionId, state.sessions, userId]);
+
+  // 其他代码...
+
   const resetConversation = async () => {
     try {
-      await resetConversationTracker(currentSessionId);
-      setMessages([]);
+      await resetConversationTracker(state.currentSessionId);
+      dispatch({ type: "CLEAR_MESSAGES" });
     } catch (error) {
       console.error("Error resetting conversation:", error);
     }
@@ -226,7 +238,7 @@ const Chat: React.FC = () => {
   };
 
   const handleSessionChange = async (selectedSession: string) => {
-    setCurrentSessionId(selectedSession);
+    dispatch({ type: "SET_CURRENT_SESSION", payload: selectedSession });
 
     // 从数据库获取之前的消息
     const response = await getConversationTracker(selectedSession);
@@ -239,7 +251,7 @@ const Chat: React.FC = () => {
         isUser: event.event === "user",
       }));
 
-    setMessages(previousMessages);
+    dispatch({ type: "SET_MESSAGES", payload: previousMessages });
 
     // 获取对话跟踪器状态
     const trackerState = response;
@@ -254,23 +266,21 @@ const Chat: React.FC = () => {
 
     const response = await getConversationTracker(newSessionId);
 
-    setCurrentSessionId(newSessionId);
-    setSessions((prevSessions) => ({
-      ...prevSessions,
-      [newSessionId]: [],
-    }));
-    setMessages([]);
+    dispatch({ type: "SET_CURRENT_SESSION", payload: newSessionId });
+    const newSessions = { ...state.sessions, [newSessionId]: [] };
+    dispatch({ type: "SET_SESSIONS", payload: newSessions });
+    dispatch({ type: "CLEAR_MESSAGES" });
   };
 
   const deleteSession = async () => {
     try {
-      await deleteConversation(currentSessionId);
-      await deleteSessions(currentSessionId);
+      await deleteConversation(state.currentSessionId);
+      await deleteSessions(state.currentSessionId);
 
-      const updatedSessions = { ...sessions };
-      delete updatedSessions[currentSessionId];
-      setSessions(updatedSessions);
-      setCurrentSessionId("");
+      const updatedSessions = { ...state.sessions };
+      delete updatedSessions[state.currentSessionId];
+      dispatch({ type: "SET_SESSIONS", payload: updatedSessions });
+      dispatch({ type: "SET_CURRENT_SESSION", payload: "" });
     } catch (error) {
       console.error("Error deleting conversation:", error);
     }
@@ -279,8 +289,8 @@ const Chat: React.FC = () => {
   return (
     <div>
       <SessionManagement
-        sessions={sessions}
-        currentSessionId={currentSessionId}
+        sessions={state.sessions}
+        currentSessionId={state.currentSessionId}
         handleSessionChange={handleSessionChange}
         createNewSession={createNewSession}
         deleteSession={deleteSession}
@@ -289,7 +299,7 @@ const Chat: React.FC = () => {
         <StoryContainer storyYaml={storyYaml} />
         <div className="chat">
           <h4>聊天</h4>
-          <MessageContainer messages={messages} />
+          <MessageContainer messages={state.messages} />
           <div className="input-area">
             <Input
               ref={inputRef}

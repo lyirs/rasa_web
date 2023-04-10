@@ -1,7 +1,7 @@
 /*
  * @Author:
  * @Date: 2023-04-10 10:00:58
- * @LastEditTime: 2023-04-10 10:33:27
+ * @LastEditTime: 2023-04-10 15:13:29
  * @Description:
  */
 import { backendInstance, rasaInstance } from "./request";
@@ -13,6 +13,14 @@ interface FetchUserSessionsResponse {
 interface GetConversationTrackerResponse {
   events: any[];
   slots: any;
+}
+
+interface GetNLUModelParseResponse {
+  intent_ranking: any;
+}
+
+interface GetRasaStatusResponse {
+  model_id: string;
 }
 
 // 后端 API
@@ -36,10 +44,12 @@ export const getConversationTracker = (
 ): Promise<GetConversationTrackerResponse> =>
   rasaInstance.get(`/conversations/${sessionId}/tracker`);
 
-export const getNLUModelParse = (message: string) =>
+export const getNLUModelParse = (
+  message: string
+): Promise<GetNLUModelParseResponse> =>
   rasaInstance.post("/model/parse", { text: message });
 
-export const getWebhookResponse = (sessionId: string, message: string) =>
+export const getWebhookResponse = (sessionId: string, message: string): any =>
   rasaInstance.post("/webhooks/rest/webhook", {
     sender: sessionId,
     message: message,
@@ -49,3 +59,6 @@ export const resetConversationTracker = (sessionId: string) =>
   rasaInstance.post(`/conversations/${sessionId}/tracker/events`, {
     event: "restart",
   });
+
+export const getRasaStatus = (): Promise<GetRasaStatusResponse> =>
+  rasaInstance.get("/status");

@@ -1,5 +1,7 @@
 import React from "react";
 import { Select, Button, Space } from "antd";
+import RasaStatus from "./RasaStatus";
+
 const { Option } = Select;
 
 interface SessionManagementProps {
@@ -19,6 +21,7 @@ const SessionManagement: React.FC<SessionManagementProps> = ({
 }) => {
   return (
     <div className="session-management">
+      <RasaStatus />
       <div className="space-container">
         <Space>
           <Select

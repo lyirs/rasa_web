@@ -1,0 +1,7 @@
+.rasa_status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  left: -430px;
+}
