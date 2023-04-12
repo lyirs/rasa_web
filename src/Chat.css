@@ -1,0 +1,180 @@
+.chat-container {
+  width: 1400px;
+  height: 100vh;
+  display: flex;
+  margin: auto;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  background-color: #f0f2f5;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.chat {
+  width: 50%;
+  height: 90%;
+  background-color: #ffffff;
+  border-radius: 5px;
+  padding: 20px;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.message-container {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding: 20px;
+}
+
+.chat .ant-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #f0f2f5;
+}
+
+.chat .ant-list-item {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.chat .user-message {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.chat .bot-message {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.message-bubble {
+  display: inline-block;
+  max-width: 60%;
+  padding: 8px 16px;
+  border-radius: 5px 5px 5px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.user-message .message-bubble {
+  background-color: #1890ff;
+  color: #fff;
+  border-radius: 5px 5px 0 5px;
+}
+
+.bot-message .message-bubble {
+  background-color: rgb(255, 133, 133);
+  color: #333;
+  border-radius: 0 5px 5px 5px;
+}
+
+.input-area {
+  display: flex;
+  align-items: center;
+}
+
+.input-area .ant-input {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.confidence-container {
+  width: 25%;
+  height: 90%;
+  background-color: #ffffff;
+  border-radius: 5px;
+  padding: 20px;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  margin: auto 20px;
+  overflow-y: auto;
+}
+
+.story-container {
+  width: 25%;
+  height: 90%;
+  background-color: #ffffff;
+  border-radius: 5px;
+  padding: 20px;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  margin: auto 20px;
+  overflow-y: auto;
+}
+
+.slot-display-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  background-color: #f0f2f5;
+}
+
+.session-management {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 20px 0;
+  padding: 10px;
+  background-color: #f0f2f5;
+  border-radius: 5px;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.model-select {
+  margin-left: 20px;
+}
+
+.space-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 为 MessageContainer 设置自定义滚动条样式 */
+.message-container::-webkit-scrollbar {
+  width: 5px; /* 设置滚动条宽度 */
+}
+
+.message-container::-webkit-scrollbar-track {
+  background-color: #f1f1f1; /* 设置滚动条轨道的背景颜色 */
+}
+
+.message-container::-webkit-scrollbar-thumb {
+  background-color: #888; /* 设置滚动条滑块的背景颜色 */
+}
+
+.message-container::-webkit-scrollbar-thumb:hover {
+  background-color: #555; /* 设置滚动条滑块的背景颜色（鼠标悬停时） */
+}
+
+.message-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.message-button {
+  background-color: #f2a2a2;
+  color: rgb(65, 65, 65);
+  font-size: 14px;
+  font-weight: bold;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  border-radius: 4px;
+  border: none;
+  transition-duration: 0.4s;
+}
+
+.message-button:hover {
+  background-color: #f9c9c9;
+}
