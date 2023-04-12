@@ -41,24 +41,11 @@ const Chat: React.FC = () => {
     leave: { opacity: 0, transform: "translateY(-20px)" },
   });
 
-  const generateStoryYaml = (trackerState: any) => {
-    let storyYaml =
-      'version: "3.1"\nstories:\n- story: Generated Story\n  steps:';
-
-    trackerState.events.forEach((event: any) => {
-      if (event.event === "user") {
-        storyYaml += `\n  - intent: ${event.parse_data.intent.name}`;
-      } else if (event.event === "action") {
-        if (
-          event.name !== "action_session_start" &&
-          event.name !== "action_listen"
-        ) {
-          storyYaml += `\n  - action: ${event.name}`;
-        }
-      }
-    });
-
-    return storyYaml;
+  const generateStoryYaml = async (): Promise<string> => {
+    let story = (await axios.get(
+      `http://localhost:5005/conversations/${userId}/story`
+    )) as string;
+    return story;
   };
 
   const sendMessage = async () => {
@@ -97,7 +84,7 @@ const Chat: React.FC = () => {
       setFilledSlots(slots);
 
       // 设置stories.yml
-      const newStoryYaml = generateStoryYaml(trackerState);
+      const newStoryYaml = await generateStoryYaml();
       setStoryYaml(newStoryYaml);
 
       setTopIntents(
