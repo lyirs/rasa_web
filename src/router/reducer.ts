@@ -1,7 +1,7 @@
 /*
  * @Author:
  * @Date: 2023-04-10 12:39:20
- * @LastEditTime: 2023-04-10 12:52:10
+ * @LastEditTime: 2023-04-12 19:06:19
  * @Description:
  */
 interface ChatAction {
@@ -13,6 +13,8 @@ export const initialState = {
   sessions: {},
   currentSessionId: "",
   messages: [],
+  models: [],
+  activeModel: "",
 };
 
 export const reducer = (state: any, action: ChatAction) => {
@@ -33,6 +35,11 @@ export const reducer = (state: any, action: ChatAction) => {
         ...state,
         messages: [],
       };
+    case "SET_MODELS":
+      return { ...state, models: action.payload };
+    case "SET_ACTIVE_MODEL":
+      return { ...state, activeModel: action.payload };
+
     default:
       return state;
   }

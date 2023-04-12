@@ -6,7 +6,7 @@ import React, {
   useReducer,
 } from "react";
 import { Input, Button } from "antd";
-import "./chat.css";
+import "./Chat.css";
 import type { InputRef } from "antd";
 import ConfidenceRanking from "./Components/ConfidenceRanking";
 import SlotDisplay from "./Components/SlotDisplay";
@@ -14,20 +14,27 @@ import SessionManagement from "./Components/SessionManagement";
 import MessageContainer from "./Components/MessageContainer";
 import StoryContainer from "./Components/StoryContainer";
 import {
-  deleteConversation,
-  fetchUserSessions,
-  getConversationTracker,
-  getNLUModelParse,
-  getWebhookResponse,
-  resetConversationTracker,
-  storeConversation,
-  deleteSessions,
+  deleteConversationApi,
+  fetchUserSessionsApi,
+  getConversationTrackerApi,
+  getNLUModelParseApi,
+  getWebhookResponseApi,
+  resetConversationTrackerApi,
+  storeConversationApi,
+  deleteSessionsApi,
+  sendButtonPayloadApi,
+  getStoryYamlApi,
+  getModelApi,
+  changeModelApi,
 } from "./request/api";
 import { reducer, initialState } from "./router/reducer";
+import { generateSessionId, generateUserId } from "./utils/generate";
 
 export interface Message {
-  text: string;
+  text?: string;
   isUser: boolean;
+  image?: string;
+  buttons?: { title: string; payload: string }[];
 }
 
 const Chat: React.FC = () => {
@@ -39,11 +46,49 @@ const Chat: React.FC = () => {
   const [inputValue, setInputValue] = useState("");
   const [filledSlots, setFilledSlots] = useState<{ [key: string]: any }>({});
 
-  // 其他代码...
+  useEffect(() => {
+    const storedUserId = localStorage.getItem("userId");
+    if (storedUserId) {
+      setUserId(storedUserId);
+      fetchSessions(storedUserId);
+    } else {
+      const newUserId = generateUserId();
+      setUserId(newUserId);
+      localStorage.setItem("userId", newUserId);
+      fetchSessions(newUserId);
+    }
+    fetchModels();
+    fetchPreviousMessages(storedUserId || userId);
+
+    if (Object.keys(state.sessions).length > 0) {
+      dispatch({
+        type: "SET_CURRENT_SESSION",
+        payload: Object.keys(state.sessions)[0],
+      });
+      dispatch({
+        type: "SET_MESSAGES",
+        payload: state.sessions[Object.keys(state.sessions)[0]],
+      });
+    }
+  }, []);
+
+  const fetchModels = async () => {
+    try {
+      const models = await getModelApi();
+      const modelList = models.models;
+      console.log(modelList);
+      dispatch({ type: "SET_MODELS", payload: modelList });
+      if (modelList.length > 0) {
+        dispatch({ type: "SET_ACTIVE_MODEL", payload: modelList[0] });
+      }
+    } catch (error) {
+      console.error("Error fetching models:", error);
+    }
+  };
 
   const fetchSessions = async (userId: string) => {
     try {
-      const session = await fetchUserSessions(userId);
+      const session = await fetchUserSessionsApi(userId);
       const sessionIds = session.sessions;
 
       const newSessions: { [key: string]: Message[] } = {};
@@ -61,109 +106,58 @@ const Chat: React.FC = () => {
     }
   };
 
-  const generateUserId = () => {
-    return `user-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-  };
-
   const fetchPreviousMessages = async (recoveredUserId: string) => {
     try {
-      const session = await fetchUserSessions(recoveredUserId);
+      const session = await fetchUserSessionsApi(recoveredUserId);
 
       const sessionId = session.sessions[0];
 
-      const response = await getConversationTracker(sessionId);
+      const response = await getConversationTrackerApi(sessionId);
 
       const events = response.events;
+      // console.log("fetchPreviousMessages");
+      // console.log(events);
       const previousMessages: Message[] = events
         .filter((event: any) => event.event === "user" || event.event === "bot")
         .map((event: any) => ({
           text: event.text,
           isUser: event.event === "user",
+          image: event.data?.image,
         }));
 
       dispatch({ type: "SET_MESSAGES", payload: previousMessages });
 
       // 设置 stories.yml
-      const newStoryYaml = generateStoryYaml(response);
+      const newStoryYaml = await generateStoryYaml(response, sessionId);
+
       setStoryYaml(newStoryYaml);
     } catch (error) {
       console.error("Error fetching previous messages:", error);
     }
   };
 
-  useEffect(() => {
-    console.log("useEffect");
-    const storedUserId = localStorage.getItem("userId");
-    if (storedUserId) {
-      setUserId(storedUserId);
-      fetchSessions(storedUserId);
-    } else {
-      const newUserId = generateUserId();
-      setUserId(newUserId);
-      localStorage.setItem("userId", newUserId);
-      fetchSessions(newUserId);
-    }
-
-    const storedSessions = localStorage.getItem("sessions");
-    if (storedSessions) {
-      dispatch({ type: "SET_SESSIONS", payload: JSON.parse(storedSessions) });
-    }
-
-    fetchPreviousMessages(storedUserId || userId);
-
-    if (Object.keys(state.sessions).length > 0) {
-      dispatch({
-        type: "SET_CURRENT_SESSION",
-        payload: Object.keys(state.sessions)[0],
-      });
-      dispatch({
-        type: "SET_MESSAGES",
-        payload: state.sessions[Object.keys(state.sessions)[0]],
-      });
-    }
-  }, []);
-
-  const generateSessionId = () => {
-    return `session-${Date.now()}`;
-  };
-
-  const generateStoryYaml = (trackerState: any) => {
-    let storyYaml =
-      'version: "3.1"\nstories:\n- story: Generated Story\n  steps:';
-
-    trackerState.events.forEach((event: any) => {
-      if (event.event === "user") {
-        storyYaml += `\n  - intent: ${event.parse_data.intent.name}`;
-      } else if (event.event === "action") {
-        if (
-          event.name !== "action_session_start" &&
-          event.name !== "action_listen"
-        ) {
-          storyYaml += `\n  - action: ${event.name}`;
-        }
-      }
-    });
-
-    return storyYaml;
+  const generateStoryYaml = async (trackerState: any, sessionId: string) => {
+    const story = await getStoryYamlApi(sessionId);
+    return story;
   };
 
   const update = async (message: string, sessionId: string) => {
     // 请求对话响应
-    const response = await getWebhookResponse(sessionId, message);
+    const response = await getWebhookResponseApi(sessionId, message);
     // 请求意图和置信度信息
-    const nluResponse = await getNLUModelParse(message);
+    const nluResponse = await getNLUModelParseApi(message);
 
     // 获取对话跟踪器状态
 
-    const trackerResponse = await getConversationTracker(sessionId);
+    const trackerResponse = await getConversationTrackerApi(sessionId);
     const trackerState = trackerResponse;
     const slots = trackerState.slots;
     setFilledSlots(slots);
     // 存储对话session
-    const storeSession = await storeConversation(userId, sessionId);
+    const storeSession = await storeConversationApi(userId, sessionId);
 
     // 设置stories.yml
-    const newStoryYaml = generateStoryYaml(trackerState);
+    const newStoryYaml = await generateStoryYaml(trackerState, sessionId);
     setStoryYaml(newStoryYaml);
 
     setTopIntents(
@@ -173,25 +167,38 @@ const Chat: React.FC = () => {
       }))
     );
 
+    // console.log("update");
+    // console.log(response);
+
     if (response && response.length > 0) {
-      const botMessage = response[0].text;
+      response.forEach((res: any) => {
+        const botMessage = res.text;
+        const botImage = res.image;
+        const botButtons = res.buttons;
+        let newMessage: Message;
 
-      dispatch({
-        type: "ADD_MESSAGE",
-        payload: {
-          text: botMessage,
-          isUser: false,
-        },
+        if (botMessage || botImage || botButtons) {
+          newMessage = {
+            text: botMessage || "",
+            image: botImage,
+            buttons: botButtons,
+            isUser: false,
+          };
+        } else {
+          return;
+        }
+
+        dispatch({
+          type: "ADD_MESSAGE",
+          payload: newMessage,
+        });
+
+        const newSessions = {
+          ...state.sessions,
+          [sessionId]: [...(state.sessions[sessionId] || []), newMessage],
+        };
+        dispatch({ type: "SET_SESSIONS", payload: newSessions });
       });
-
-      const newSessions = {
-        ...state.sessions,
-        [sessionId]: [
-          ...(state.sessions[sessionId] || []),
-          { text: botMessage, isUser: false },
-        ],
-      };
-      dispatch({ type: "SET_SESSIONS", payload: newSessions });
     }
   };
 
@@ -220,11 +227,9 @@ const Chat: React.FC = () => {
     }
   }, [state.currentSessionId, state.sessions, userId]);
 
-  // 其他代码...
-
   const resetConversation = async () => {
     try {
-      await resetConversationTracker(state.currentSessionId);
+      await resetConversationTrackerApi(state.currentSessionId);
       dispatch({ type: "CLEAR_MESSAGES" });
     } catch (error) {
       console.error("Error resetting conversation:", error);
@@ -241,7 +246,7 @@ const Chat: React.FC = () => {
     dispatch({ type: "SET_CURRENT_SESSION", payload: selectedSession });
 
     // 从数据库获取之前的消息
-    const response = await getConversationTracker(selectedSession);
+    const response = await getConversationTrackerApi(selectedSession);
 
     const events = response.events;
     const previousMessages: Message[] = events
@@ -257,14 +262,14 @@ const Chat: React.FC = () => {
     const trackerState = response;
 
     // 设置 stories.yml
-    const newStoryYaml = generateStoryYaml(trackerState);
+    const newStoryYaml = await generateStoryYaml(trackerState, selectedSession);
     setStoryYaml(newStoryYaml);
   };
 
   const createNewSession = async () => {
     const newSessionId = generateSessionId();
 
-    const response = await getConversationTracker(newSessionId);
+    const response = await getConversationTrackerApi(newSessionId);
 
     dispatch({ type: "SET_CURRENT_SESSION", payload: newSessionId });
     const newSessions = { ...state.sessions, [newSessionId]: [] };
@@ -274,8 +279,8 @@ const Chat: React.FC = () => {
 
   const deleteSession = async () => {
     try {
-      await deleteConversation(state.currentSessionId);
-      await deleteSessions(state.currentSessionId);
+      await deleteConversationApi(state.currentSessionId);
+      await deleteSessionsApi(state.currentSessionId);
 
       const updatedSessions = { ...state.sessions };
       delete updatedSessions[state.currentSessionId];
@@ -286,6 +291,53 @@ const Chat: React.FC = () => {
     }
   };
 
+  const handleButtonClick = async (payload: any) => {
+    const response = await sendButtonPayloadApi(
+      state.currentSessionId,
+      payload
+    );
+
+    response.forEach((res: any) => {
+      const botMessage = res.text;
+      const botImage = res.image;
+      const botButtons = res.buttons;
+      let newMessage: Message;
+
+      if (botMessage || botImage || botButtons) {
+        newMessage = {
+          text: botMessage || "",
+          image: botImage,
+          buttons: botButtons,
+          isUser: false,
+        };
+      } else {
+        return;
+      }
+      dispatch({
+        type: "ADD_MESSAGE",
+        payload: newMessage,
+      });
+      const newSessions = {
+        ...state.sessions,
+        [state.currentSessionId]: [
+          ...(state.sessions[state.currentSessionId] || []),
+          newMessage,
+        ],
+      };
+      dispatch({ type: "SET_SESSIONS", payload: newSessions });
+    });
+  };
+
+  const handleModelChange = async (selectdModel: string) => {
+    console.log(state.activeModel);
+    const response = await changeModelApi(selectdModel);
+    console.log(response);
+  };
+
+  const refreshModel = async () => {
+    await fetchModels();
+  };
+
   return (
     <div>
       <SessionManagement
@@ -294,12 +346,19 @@ const Chat: React.FC = () => {
         handleSessionChange={handleSessionChange}
         createNewSession={createNewSession}
         deleteSession={deleteSession}
+        models={state.models}
+        activeModel={state.activeModel}
+        handleModelChange={handleModelChange}
+        refreshModel={refreshModel}
       />
       <div className="chat-container">
         <StoryContainer storyYaml={storyYaml} />
         <div className="chat">
           <h4>聊天</h4>
-          <MessageContainer messages={state.messages} />
+          <MessageContainer
+            messages={state.messages}
+            onButtonClick={handleButtonClick}
+          />
           <div className="input-area">
             <Input
               ref={inputRef}

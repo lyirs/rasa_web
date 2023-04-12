@@ -6,7 +6,7 @@
  */
 import React, { useState, useEffect } from "react";
 import { CheckOutlined, CloseOutlined } from "@ant-design/icons";
-import { getRasaStatus } from "../request/api";
+import { getRasaStatusApi } from "../request/api";
 import "./RasaStatus.css";
 
 const RasaStatus: React.FC = () => {
@@ -14,7 +14,7 @@ const RasaStatus: React.FC = () => {
 
   const checkRasaStatus = async () => {
     try {
-      const response = await getRasaStatus();
+      const response = await getRasaStatusApi();
       if (response.model_id) {
         setStatus(true);
       } else {

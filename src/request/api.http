@@ -1,0 +1,5 @@
+GET http://localhost:5005/status
+
+# POST http://localhost:5005/model/train
+
+# GET http://localhost:5005/model
