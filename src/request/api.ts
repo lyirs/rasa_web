@@ -1,30 +1,46 @@
 /*
  * @Author:
  * @Date: 2023-04-10 10:00:58
- * @LastEditTime: 2023-04-12 20:18:29
+ * @LastEditTime: 2023-04-13 14:23:15
  * @Description:
  */
 import { backendInstance, rasaInstance } from "./request";
 
-interface FetchUserSessionsResponse {
-  sessions: string[];
+interface Response {
+  data: any;
+  status: number;
 }
 
-interface GetConversationTrackerResponse {
-  events: any[];
-  slots: any;
+interface FetchUserSessionsResponse extends Response {
+  data: {
+    sessions: string[];
+  };
 }
 
-interface GetNLUModelParseResponse {
-  intent_ranking: any;
+interface GetConversationTrackerResponse extends Response {
+  data: {
+    events: any[];
+    slots: any;
+  };
 }
 
-interface GetRasaStatusResponse {
-  model_id: string;
+interface GetNLUModelParseResponse extends Response {
+  data: {
+    intent_ranking: any;
+  };
 }
 
-interface GetModelResponse {
-  models: string[];
+interface GetRasaStatusResponse extends Response {
+  data: {
+    model_id: string;
+    model_file: string;
+  };
+}
+
+interface GetModelResponse extends Response {
+  data: {
+    models: string[];
+  };
 }
 
 // 后端 API
@@ -44,6 +60,7 @@ export const deleteSessionsApi = (sessionId: string) =>
 
 export const getModelApi = (): Promise<GetModelResponse> =>
   backendInstance.get("/models");
+
 // Rasa API
 export const getConversationTrackerApi = (
   sessionId: string
@@ -78,10 +95,16 @@ export const resetConversationTrackerApi = (sessionId: string) =>
 export const getRasaStatusApi = (): Promise<GetRasaStatusResponse> =>
   rasaInstance.get("/status");
 
-export const getStoryYamlApi = (sessionId: string): Promise<string> =>
+export const getStoryYamlApi = (sessionId: string) =>
   rasaInstance.get(`/conversations/${sessionId}/story`);
 
 export const changeModelApi = (model_name: string) =>
-  rasaInstance.put(`/model`, {
-    model_file: `models/${model_name}`,
-  });
+  rasaInstance.put(
+    `/model`,
+    {
+      model_file: `models/${model_name}`,
+    },
+    {
+      timeout: 60000,
+    }
+  );

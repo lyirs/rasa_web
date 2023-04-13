@@ -1,3 +1,9 @@
+/*
+ * @Author:
+ * @Date: 2023-04-10 10:00:58
+ * @LastEditTime: 2023-04-13 14:10:55
+ * @Description:
+ */
 import axios from "axios";
 
 // 配置项接口
@@ -35,7 +41,10 @@ rasaInstance.interceptors.request.use(
 );
 
 // 添加响应拦截器
-const responseInterceptor = (response: any) => response.data;
+const responseInterceptor = (response: any) => {
+  return response;
+};
+
 const responseErrorInterceptor = (error: any) => Promise.reject(error);
 
 backendInstance.interceptors.response.use(

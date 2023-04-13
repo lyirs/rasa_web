@@ -14,7 +14,7 @@ const RasaStatus: React.FC = () => {
 
   const checkRasaStatus = async () => {
     try {
-      const response = await getRasaStatusApi();
+      const response = (await getRasaStatusApi()).data;
       if (response.model_id) {
         setStatus(true);
       } else {

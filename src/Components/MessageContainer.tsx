@@ -1,18 +1,13 @@
 /*
  * @Author:
  * @Date: 2023-04-09 01:29:10
- * @LastEditTime: 2023-04-10 19:04:19
+ * @LastEditTime: 2023-04-13 13:34:26
  * @Description:
  */
 import React from "react";
 import { List } from "antd";
-import type { Message } from "../Chat";
 import { useTransition, animated } from "react-spring";
-
-interface MessageContainerProps {
-  messages: Message[];
-  onButtonClick: (payload: string) => void;
-}
+import { Message, MessageContainerProps } from "../types/interface";
 
 const MessageContainer: React.FC<MessageContainerProps> = ({
   messages,
@@ -45,7 +40,7 @@ const MessageContainer: React.FC<MessageContainerProps> = ({
                     <button
                       key={button.title}
                       className="message-button"
-                      onClick={() => onButtonClick(button.payload)}
+                      onClick={() => onButtonClick(button)}
                     >
                       {button.title}
                     </button>
