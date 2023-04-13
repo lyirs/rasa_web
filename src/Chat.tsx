@@ -23,7 +23,6 @@ import {
   storeConversationApi,
   deleteSessionsApi,
   sendButtonPayloadApi,
-  getStoryYamlApi,
   getModelApi,
   changeModelApi,
   getRasaStatusApi,
