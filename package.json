@@ -1,31 +1,54 @@
 {
   "name": "rasa_project",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "main": "electron.js",
+  "version": "1.0.0",
+  "description": "A rasa web project",
+  "type": "module", 
+  "main": "main.js",
   "scripts": {
     "dev": "vite",
-    "test": "vitest",
+    "start-dev": "set NODE_ENV=development && electron .",
+    "start": "electron .",
     "build": "tsc && vite build",
-    "preview": "vite preview",
-    "electron": "electron .",
-    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && npm run electron\""
+    "pack": "electron-builder --dir"
+  },
+  "keywords": [
+    "Electron"
+  ],
+  "author": "Lyirs",
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.7.1",
+    "concurrently": "^9.0.1",
+    "electron": "^33.0.2",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "wait-on": "^8.0.1"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.5.1",
+    "antd": "^5.21.6",
+    "axios": "^1.7.7",
+    "react": "^18.3.1",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^18.3.1",
+    "react-spring": "^9.7.4",
+    "vitest": "^2.1.4"
   },
   "build": {
-    "appId": "com.example.yourapp",
-    "productName": "YourApp",
+    "appId": "com.example.rasaapp",
+    "productName": "Rasa App",
     "files": [
       "dist/**/*",
-      "electron.js",
-      "electron-preload.js",
+      "main.js",
+      "preload.js",
       "package.json"
     ],
     "directories": {
       "buildResources": "assets"
-    },
-    "extraMetadata": {
-      "main": "build/electron.js"
     },
     "win": {
       "target": [
@@ -41,31 +64,5 @@
       "provider": "github",
       "releaseType": "draft"
     }
-  },
-  "dependencies": {
-    "@ant-design/icons": "^5.0.1",
-    "antd": "^5.4.0",
-    "axios": "^1.3.5",
-    "d3": "^7.8.4",
-    "d3-force": "^3.0.0",
-    "react": "^18.2.0",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
-    "react-dom": "^18.2.0",
-    "react-spring": "^9.7.1",
-    "vitest": "^0.30.1"
-  },
-  "devDependencies": {
-    "@types/d3": "^7.4.0",
-    "@types/d3-force": "^3.0.4",
-    "@types/react": "^18.0.28",
-    "@types/react-dom": "^18.0.11",
-    "@vitejs/plugin-react-swc": "^3.0.0",
-    "concurrently": "^8.0.1",
-    "electron": "^24.0.0",
-    "electron-builder": "^23.6.0",
-    "typescript": "^4.9.3",
-    "vite": "^4.2.0",
-    "wait-on": "^7.0.1"
   }
 }

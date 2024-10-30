@@ -14,12 +14,12 @@ interface AxiosOption {
 
 const backendOption: AxiosOption = {
   baseURL: "http://localhost:5001",
-  timeout: 5000,
+  timeout: 20000,
 };
 
 const rasaOption: AxiosOption = {
   baseURL: "http://localhost:5005",
-  timeout: 5000,
+  timeout: 20000,
 };
 
 // 创建两个单例
